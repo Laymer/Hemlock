@@ -4,6 +4,7 @@
  (foreign_stubs
   (language c)
   (names entropy intnb u64))
+ (libraries unix)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_inline_test))
  (synopsis "Hemlock bootstrap Basis library")
