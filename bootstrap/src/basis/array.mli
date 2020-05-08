@@ -26,6 +26,286 @@ val cmp: ('a -> 'a -> Cmp.t) -> 'a t -> 'a t -> Cmp.t
 (** Compare two arrays given the element comparison function.  The array lengths
     may differ. *)
 
+(*
+type 'a slice
+module Slice : sig
+  type 'a outer = 'a t
+  type 'a t = 'a slice
+
+  val of_cursors: base:'a Cursor.t -> past:'a Cursor.t -> 'a t
+  (** [of_cursors ~base ~past] creates a slice with contents \[[base .. past)].
+  *)
+
+  val to_cursors: 'a t -> 'a Cursor.t * 'a Cursor.t
+  (** Return the cursors comprising the slice. *)
+
+  val array: 'a t -> 'a outer
+  (** [string t] returns the unsliced string underlying [t]. *)
+
+  val base: 'a t -> 'a Cursor.t
+  (** Return the cursor at the base of the slice. *)
+
+  val past: 'a t -> 'a Cursor.t
+  (** Return the cursor past the end of the slice. *)
+
+  val of_array: 'a outer -> 'a t
+  (** [of_string s] returns a slice enclosing the entirety of [s]. *)
+
+  val to_array: 'a t -> 'a outer
+  (** Return a string with contents equivalent to those of the slice. *)
+
+  val base_seek: isize -> 'a t -> 'a t
+  (** [base_seek i t] returns a derivative slice with its [base] cursor
+      initialized by seeking [t]'s [base] cursor [i] codepoints
+      forward/backward. *)
+
+  val base_succ: 'a t -> 'a t
+  (** [base_succ t] returns a derivative slice with its [base] cursor
+      initialized to the successor of [t]'s [base] cursor. *)
+
+  val base_pred: 'a t -> 'a t
+  (** [base_pred t] returns a derivative slice with its [base] cursor
+      initialized to the predecessor of [t]'s [base] cursor. *)
+
+  val past_seek: isize -> 'a t -> 'a t
+  (** [past_seek i t] returns a derivative slice with its [past] cursor
+      initialized by seeking [t]'s [past] cursor [i] codepoints
+      forward/backward. *)
+
+  val past_succ: 'a t -> 'a t
+  (** [past_succ t] returns a derivative slice with its [past] cursor
+      initialized to the successor of [t]'s [past] cursor. *)
+
+  val past_pred: 'a t -> 'a t
+  (** [past_pred t] returns a derivative slice with its [past] cursor
+      initialized to the predecessor of [t]'s [past] cursor. *)
+
+  val length: 'a t -> usize
+  (** Length of the slice. *)
+
+  val get: usize -> 'a t -> byte
+  (** [get i t] returns the bytes at offset [i] from the [base] of the slice. *)
+
+  val init: ?length:usize -> usize -> f:(usize -> 'a) -> 'a t
+  (** [init ~blength clength ~f] creates a slice of given byte length and
+      codepoint length using ~f to determine the values of the codepoints at
+      each index.  [blength] must be accurate if specified. *)
+
+  val of_elm: 'a -> 'a t
+  (** Create a slice containing a single codepoint. *)
+
+  val of_list: ?length:usize -> 'a list -> 'a t
+  (** [of_list ~blength ~clength codepoints] creates a slice of given byte
+      length and codepoint length containing the ordered [codepoints].
+      [blength]/[clength] must be accurate if specified. *)
+
+  val of_list_rev: ?length:usize -> 'a list -> 'a t
+  (** [of_list_rev ~blength ~clength codepoints] creates a slice of given byte
+      length and codepoint length containing the reverse-ordered [codepoints].
+      [blength]/[clength] must be accurate if specified. *)
+
+  val of_array: ?length:usize -> 'a outer -> 'a t
+  (** [of_array ~blength codepoints] creates a slice of given byte length
+      containing the ordered [codepoints].  [blength] must be accurate if
+      specified. *)
+
+  val map: f:('a -> 'a) -> 'a t -> 'a t
+  (** [map ~f t] creates a slice with codepoints mapped from [t]'s codepoints.
+  *)
+
+  val mapi: f:(usize -> 'a -> 'a) -> 'a t -> 'a t
+  (** [map ~f t] creates a slice with codepoints mapped from [t]'s codepoints.
+      Codepoint index within [t] is provided to [f]. *)
+
+  val tr: target:'a -> replacement:'a -> 'a t -> 'a t
+  (** [tr ~target ~replacement t] creates a slice with select codepoints
+      translated from [t]'s codepoints.  [target] is translated to
+      [replacement]; all other codepoints are copied without translation. *)
+
+  val filter: f:('a -> bool) -> 'a t -> 'a t
+  (** [filter ~f t] creates a slice from [t]'s codepoints filtered by [f].  Only
+      codepoints for which [f] returns [true] are incorporated into the result.
+  *)
+
+  val concat: ?sep:'a t -> 'a t list -> 'a t
+  (** [concat ~sep slices] creates a slice comprised of the concatenation of the
+      [slices] list, with [sep] interposed between the inputs. *)
+
+  val concat_rev: ?sep:'a t -> 'a t list -> 'a t
+  (** [concat_rev ~sep slices] creates a slice comprised of the concatenation of
+      reversed [slices] list, with [sep] interposed between the inputs. *)
+
+  val concat_map: ?sep:'a t -> f:('a -> 'a t) -> 'a t -> 'a t
+  (** [concat_map ~sep ~f t] creates a slice which is the concatenation of
+      applying [f] to convert each codepoint to a slice.  This is more general
+      (and more expensive) than {!map}, because each input codepoint can be
+      mapped to any length of output. *)
+
+  val rev: 'a t -> 'a t
+  (** [rev t] creates a slice with the codepoint ordering reversed relative to
+      [t]. *)
+
+  val lfind: 'a -> 'a t -> 'a Cursor.t option
+  (** [lfind cp t] returns a cursor to the leftmost instance of [cp] in [t], or
+      [None] if [cp] is absent. *)
+
+  val lfind_hlt: 'a -> 'a t -> 'a Cursor.t
+  (** [lfind_hlt cp t] returns a cursor to the leftmost instance of [cp] in [t],
+      or halts if [cp] is absent. *)
+
+  val contains: 'a -> 'a t -> bool
+  (** [contains cp t] returns [true] if [t] contains [cp], [false] otherwise. *)
+
+  val rfind: 'a -> 'a t -> 'a Cursor.t option
+  (** [rfind cp t] returns a cursor to the rightmost instance of [cp] in [t], or
+      [None] if [cp] is absent. *)
+
+  val rfind_hlt: 'a -> 'a t -> 'a Cursor.t
+  (** [rfind_hlt cp t] returns a cursor to the rightmost instance of [cp] in
+      [t], or halts if [cp] is absent. *)
+
+  (** Simple but efficient pattern matching, based on the {{:
+      https://en.wikipedia.org/wiki/Knuth-Morris-Pratt_algorithm}
+      Knuth-Morris-Pratt algorithm}.  Patterns are uninterpreted codepoint
+      sequences.  Searches require at most a single pass over the input,
+      regardless of whether finding one or more (optionally overlapping)
+      matches.
+  *)
+  module Pattern : sig
+    type 'a outer = 'a t
+
+    type 'a t
+    (** Compiled pattern. *)
+
+    val create: 'a outer -> 'a t
+    (** [create s] creates a compiled pattern corresponding to [s]. *)
+
+    val find: in_:'a outer -> 'a t -> 'a Cursor.t option
+    (** [find ~in_ t] returns a cursor to the leftmost match in [in_], or [None]
+        if no match exists. *)
+
+    val find_hlt: in_:'a outer -> 'a t -> 'a Cursor.t
+    (** [find_hlt ~in_ t] returns a cursor to the leftmost match in [in_], or
+        halts if no match exists. *)
+
+    val find_all: may_overlap:bool -> in_:'a outer -> 'a t -> 'a Cursor.t list
+    (** [find_all ~may_overlap ~in_ t] returns a list of cursors to the matches
+        in [in_].  Non-leftmost overlapping matches are excluded if
+        [may_overlap] is [false]. *)
+
+    val replace_first: in_:'a outer -> with_:'a outer -> 'a t -> 'a outer
+    (** [replace_first ~in_ ~with_ t] returns a slice with the first match in
+        [in_], if any, replaced with [with_] in the result. *)
+
+    val replace_all: in_:'a outer -> with_:'a outer -> 'a t -> 'a outer
+    (** [replace_all ~in_ ~with_ t] returns a slice with all matches in [in_],
+        if any, replaced with [with_] in the result. *)
+  end
+
+  val is_prefix: prefix:'a t -> 'a t -> bool
+  (** [is_prefix ~prefix t] returns true if [prefix] is a prefix of [t]. *)
+
+  val is_suffix: suffix:'a t -> 'a t -> bool
+  (** [is_suffix ~suffix t] returns true if [suffix] is a suffix of [t]. *)
+
+  val prefix: usize -> 'a t -> 'a t
+  (** [prefix i t] returns the prefix of [t] comprising [i] codepoints. *)
+
+  val suffix: usize -> 'a t -> 'a t
+  (** [suffix i t] returns the suffix of [t] comprising [i] codepoints. *)
+
+  val chop_prefix: prefix:'a t -> 'a t -> 'a t option
+  (** [chop_prefix ~prefix t] returns [t] absent [prefix], or [None] if [prefix]
+      is not a valid prefix of [t]. *)
+
+  val chop_prefix_hlt: prefix:'a t -> 'a t -> 'a t
+  (** [chop_prefix_hlt ~prefix t] returns [t] absent [prefix], or halts if
+      [prefix] is not a valid prefix of [t]. *)
+
+  val chop_suffix: suffix:'a t -> 'a t -> 'a t option
+  (** [chop_suffix ~suffix t] returns [t] absent [suffix], or [None] if [suffix]
+      is not a valid suffix of [t]. *)
+
+  val chop_suffix_hlt: suffix:'a t -> 'a t -> 'a t
+  (** [chop_suffix_hlt ~suffix t] returns [t] absent [suffix], or halts if
+      [suffix] is not a valid suffix of [t]. *)
+
+  val lstrip: ?drop:('a -> bool) -> 'a t -> 'a t
+  (** [lstrip ~drop t] returns [t] absent the prefix codepoints for which [drop]
+      returns [true].  The default [drop] strips tab (['\t']), newline (['\n']),
+      carriage return (['\r']), and space ([' ']). *)
+
+  val rstrip: ?drop:('a -> bool) -> 'a t -> 'a t
+  (** [rstrip ~drop t] returns [t] absent the suffix codepoints for which [drop]
+      returns [true].  The default [drop] strips tab (['\t']), newline (['\n']),
+      carriage return (['\r']), and space ([' ']). *)
+
+  val strip: ?drop:('a -> bool) -> 'a t -> 'a t
+  (** [strip ~drop t] returns [t] absent the prefix and suffix codepoints for
+      which [drop] returns [true].  The default [drop] strips tab (['\t']),
+      newline (['\n']), carriage return (['\r']), and space ([' ']). *)
+
+  val split_fold_until: init:'accum -> on:('a -> bool)
+    -> f:('accum -> 'a slice -> 'accum * bool) -> 'a t -> 'accum
+  (** [split_fold_until ~init ~on ~f t] splits [t] on [on] into slices, which
+      [f] folds in left to right order based on initial value [init], until [f]
+      returns [accum, true], or until all slices have been folded. *)
+
+  val split_fold_right_until: init:'accum -> on:('a -> bool)
+    -> f:('a slice -> 'accum -> 'accum * bool) -> 'a t -> 'accum
+  (** [split_fold_right_until ~init ~on ~f t] splits [t] on [on] into slices,
+      which [f] folds in right to left order based on initial value [init],
+      until [f] returns [accum, true], or until all slices have been folded. *)
+
+  val split_fold: init:'accum -> on:('a -> bool)
+    -> f:('accum -> 'a slice -> 'accum) -> 'a t -> 'accum
+  (** [split_fold ~init ~on ~f t] splits [t] on [on] into slices, which
+      [f] folds in left to right order based on initial value [init]. *)
+
+  val split_fold_right: init:'accum -> on:(codepoint -> bool)
+    -> f:('a slice -> 'accum -> 'accum) -> 'a t -> 'accum
+  (** [split_fold_right ~init ~on ~f t] splits [t] on [on] into slices, which
+      [f] folds in right to left order based on initial value [init]. *)
+
+  val lines_fold: init:'accum
+    -> f:('accum -> 'a slice -> 'accum) -> 'a t -> 'accum
+  (** [lines_fold ~init ~f t] splits [t] into lines separated by ["\r\n"] or
+      ["\n"], which [f] folds in left to right order based on initial value
+      [init]. *)
+
+  val lines_fold_right: init:'accum
+    -> f:('a slice -> 'accum -> 'accum) -> 'a t -> 'accum
+  (** [lines_fold_right ~init ~f t] splits [t] into lines separated by ["\r\n"]
+      or ["\n"], which [f] folds in right to left order based on initial value
+      [init]. *)
+
+  val lsplit2: on:'a -> 'a t -> ('a t * 'a t) option
+  (** [lsplit2 ~on t] splits [t] into two slices at the leftmost codepoint for
+      which [on] returns [true], or returns [None] if [on] never returns [true].
+  *)
+
+  val lsplit2_hlt: on:'a -> 'a t -> 'a t * 'a t
+  (** [lsplit2_hlt ~on t] splits [t] into two slices at the leftmost codepoint
+      for which [on] returns [true], or halts if [on] never returns [true]. *)
+
+  val rsplit2: on:'a -> 'a t -> ('a t * 'a t) option
+  (** [rsplit2 ~on t] splits [t] into two slices at the rightmost codepoint for
+      which [on] returns [true], or returns [None] if [on] never returns [true].
+  *)
+
+  val rsplit2_hlt: on:'a -> 'a t -> 'a t * 'a t
+  (** [rsplit2_hlt ~on t] splits [t] into two slices at the rightmost codepoint
+      for which [on] returns [true], or halts if [on] never returns [true]. *)
+
+  (** Slice comparison operators. *)
+  module O : sig
+    type nonrec 'a t = 'a t
+
+    include Cmpable_intf.S_poly with type 'a t := 'a t
+  end
+end
+*)
+
 module Seq : sig
   type 'a outer = 'a t
   module type S_mono = sig
